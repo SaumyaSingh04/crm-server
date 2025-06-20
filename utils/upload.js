@@ -1,19 +1,37 @@
-import cloudinary from '../config/cloudinary.js';
+// server/utils/upload.js
+//import cloudinary from '../config/cloudinary.js';
 
-export const uploadToCloudinary = async (file, folder = 'employee-documents') => {
+// utils/upload.js
+import cloudinary from "cloudinary";
+import fs from "fs";
+
+cloudinary.v2.config({
+  cloud_name: "dr7thzxwl",
+  api_key: "756574152586552",
+  api_secret: "y235v56HWXHd-V5102B7RKcST7g",
+});
+
+export const uploadToCloudinary = async (file, folder = "employees") => {
   try {
-    const result = await cloudinary.uploader.upload(file.path, {
-      folder,
-      resource_type: 'auto'
+    if (!file.tempFilePath) {
+      throw new Error("Invalid file data");
+    }
+
+    const result = await cloudinary.v2.uploader.upload(file.tempFilePath, {
+      folder: "employees",
+      resource_type: "auto",
     });
-    return {
-      public_id: result.public_id,
-      url: result.secure_url
-    };
-  } catch (error) {
-    throw new Error(`Cloudinary upload error: ${error.message}`);
+
+    // Optional: remove temp file
+    fs.unlinkSync(file.tempFilePath);
+
+    return result.secure_url;
+  } catch (err) {
+    console.error("Cloudinary upload error:", err);
+    throw new Error("Cloudinary upload error: " + err.message);
   }
 };
+
 
 export const deleteFromCloudinary = async (public_id) => {
   try {

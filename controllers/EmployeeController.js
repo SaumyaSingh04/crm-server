@@ -42,7 +42,7 @@ export const createEmployee = async (req, res) => {
     // Debug: Log incoming request
     console.log('Received files:', Object.keys(req.files || {}));
     console.log('Received employeeData:', req.body.employeeData);
-    
+    console.log("req.files:", req.files);
     if (!req?.body?.employeeData) {
       return res.status(400).json({
         success: false,
@@ -402,6 +402,35 @@ export const deleteDocument = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error'
+    });
+  }
+};
+// Toggle is_current_employee
+export const toggleCurrentEmployee = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const employee = await Employee.findById(id);
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found",
+      });
+    }
+
+    employee.is_current_employee = !employee.is_current_employee;
+    await employee.save();
+
+    res.status(200).json({
+      success: true,
+      message: "is_current_employee toggled successfully",
+      data: employee,
+    });
+  } catch (error) {
+    console.error("Toggle Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error while toggling is_current_employee",
     });
   }
 };
