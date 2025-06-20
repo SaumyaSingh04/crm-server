@@ -3,6 +3,7 @@ import connectDB from "./config/db.js";
 import dotenv from "dotenv";
 import cors from "cors";
 import "dotenv/config";
+import fileUpload from "express-fileupload";
 import adminRoutes from "./routes/AdminRoutes.js";
 import authRoutes from "./routes/AuthRoutes.js";
 import projectRoutes from "./routes/ProjectRoutes.js";
@@ -24,6 +25,10 @@ await connectDB();
 // Middleware Configuration
 app.use(express.json());
 app.use(cors({ origin: allowedOrigins, credentials: true }));
+app.use(fileUpload({
+  useTempFiles: true,
+  tempFileDir: "/tmp/",
+}));
 
 // Routes
 app.use("/api/admin", adminRoutes);

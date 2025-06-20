@@ -1,111 +1,122 @@
 import Employee from '../models/Employee.js';
 import { uploadToCloudinary, deleteFromCloudinary } from '../utils/upload.js';
-import fs from 'fs';
-import path from 'path';
 
 // Process files and upload to Cloudinary
 const processFiles = async (req) => {
-    const fileData = {};
+  const fileData = {};
+  
+  if (!req.files) return fileData;
+
+  for (const field in req.files) {
+    let files = req.files[field];
     
-    if (!req.files) return fileData;
-  
-    for (const field in req.files) {
-      let files = req.files[field];
-      
-      // Normalize to array
-      if (!Array.isArray(files)) {
-        files = [files];
+    // Normalize to array
+    if (!Array.isArray(files)) {
+      files = [files];
+    }
+
+    if (files.length === 1) {
+      try {
+        fileData[field] = await uploadToCloudinary(files[0]);
+      } catch (error) {
+        console.error(`Error uploading ${field}:`, error);
       }
-  
-      if (files.length === 1) {
+    } else {
+      fileData[field] = [];
+      for (const file of files) {
         try {
-          fileData[field] = await uploadToCloudinary(files[0]);
+          const uploaded = await uploadToCloudinary(file);
+          fileData[field].push(uploaded);
         } catch (error) {
-          console.error(`Error uploading ${field}:`, error);
-        }
-      } else {
-        fileData[field] = [];
-        for (const file of files) {
-          try {
-            const uploaded = await uploadToCloudinary(file);
-            fileData[field].push(uploaded);
-          } catch (error) {
-            console.error(`Error uploading file in ${field}:`, error);
-          }
+          console.error(`Error uploading file in ${field}:`, error);
         }
       }
     }
-    
-    return fileData;
-  };
+  }
+  
+  return fileData;
+};
 
 export const createEmployee = async (req, res) => {
-    try {
-      // Debug: Log incoming request
-      console.log('Received files:', Object.keys(req.files || {}));
-      console.log('Received employeeData:', req.body.employeeData);
-      
-      if (!req.body.employeeData) {
-        return res.status(400).json({
-          success: false,
-          message: 'Missing employeeData in request'
-        });
-      }
-  
-      let employeeData;
-      try {
-        employeeData = JSON.parse(req.body.employeeData);
-      } catch (parseError) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid JSON in employeeData'
-        });
-      }
-      
-      const fileData = await processFiles(req);
-      
-      // Map file data to employee data
-      employeeData.profile_image = fileData.profile_image || null;
-      employeeData.aadhar_document = fileData.aadhar_document || null;
-      employeeData.pan_document = fileData.pan_document || null;
-      
-      // Handle documents
-      employeeData.documents = {
-        resume: fileData.resume || null,
-        offer_letter: fileData.offer_letter || null,
-        joining_letter: fileData.joining_letter || null,
-        other_docs: fileData.other_docs || []
-      };
-      
-      // Handle work experience files
-      if (employeeData.work_experience && fileData.experience_letter) {
-        employeeData.work_experience.forEach((exp, index) => {
-          if (fileData.experience_letter[index]) {
-            exp.experience_letter = fileData.experience_letter[index];
-          }
-        });
-      }
-      
-      const employee = new Employee(employeeData);
-      await employee.save();
-      
-      res.status(201).json({
-        success: true,
-        data: employee
-      });
-    } catch (error) {
-      console.error('Error creating employee:', error);
-      res.status(400).json({
+  try {
+    // Debug: Log incoming request
+    console.log('Received files:', Object.keys(req.files || {}));
+    console.log('Received employeeData:', req.body.employeeData);
+    
+    if (!req?.body?.employeeData) {
+      return res.status(400).json({
         success: false,
-        message: error.message
+        message: 'Missing employeeData in request'
       });
     }
-  };
+
+    let employeeData;
+    try {
+      employeeData = JSON.parse(req.body.employeeData);
+    } catch (parseError) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid JSON in employeeData'
+      });
+    }
+    
+    // Remove any existing employee_id to prevent manual entry
+    delete employeeData.employee_id;
+    
+    const fileData = await processFiles(req);
+    
+    // Map file data to employee data
+    employeeData.profile_image = fileData.profile_image || null;
+    employeeData.aadhar_document = fileData.aadhar_document || null;
+    employeeData.pan_document = fileData.pan_document || null;
+    
+    // Handle documents
+    employeeData.documents = {
+      resume: fileData.resume || null,
+      offer_letter: fileData.offer_letter || null,
+      joining_letter: fileData.joining_letter || null,
+      other_docs: fileData.other_docs || []
+    };
+    
+    // Handle work experience files
+    if (employeeData.work_experience && fileData.experience_letter) {
+      employeeData.work_experience.forEach((exp, index) => {
+        if (fileData.experience_letter[index]) {
+          exp.experience_letter = fileData.experience_letter[index];
+        }
+      });
+    }
+    
+    const employee = new Employee(employeeData);
+    await employee.save();
+    
+    res.status(201).json({
+      success: true,
+      data: employee,
+      message: 'Employee created successfully'
+    });
+  } catch (error) {
+    console.error('Error creating employee:', error);
+    
+    // Handle duplicate key error
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Employee ID or email already exists'
+      });
+    }
+    
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
 
 // Get All Employees
 export const getEmployees = async (req, res) => {
   try {
-    const employees = await Employee.find().sort({ created_at: -1 });
+    const employees = await Employee.find().sort({ employee_id: 1 });
     res.status(200).json({
       success: true,
       data: employees
@@ -150,6 +161,11 @@ export const updateEmployee = async (req, res) => {
       JSON.parse(req.body.employeeData) : 
       req.body;
     
+    // Prevent changing the auto-generated employee_id
+    if (employeeData.employee_id) {
+      delete employeeData.employee_id;
+    }
+    
     // Find existing employee
     let employee = await Employee.findById(req.params.id);
     
@@ -162,21 +178,21 @@ export const updateEmployee = async (req, res) => {
     
     // Delete old files if new ones are uploaded
     if (fileData.profile_image) {
-      if (employee.profile_image && employee.profile_image.public_id) {
+      if (employee.profile_image?.public_id) {
         await deleteFromCloudinary(employee.profile_image.public_id);
       }
       employeeData.profile_image = fileData.profile_image;
     }
     
     if (fileData.aadhar_document) {
-      if (employee.aadhar_document && employee.aadhar_document.public_id) {
+      if (employee.aadhar_document?.public_id) {
         await deleteFromCloudinary(employee.aadhar_document.public_id);
       }
       employeeData.aadhar_document = fileData.aadhar_document;
     }
     
     if (fileData.pan_document) {
-      if (employee.pan_document && employee.pan_document.public_id) {
+      if (employee.pan_document?.public_id) {
         await deleteFromCloudinary(employee.pan_document.public_id);
       }
       employeeData.pan_document = fileData.pan_document;
@@ -207,7 +223,7 @@ export const updateEmployee = async (req, res) => {
       employeeData.documents.joining_letter = fileData.joining_letter;
     }
     
-    if (fileData.other_docs) {
+    if (fileData.other_docs && fileData.other_docs.length > 0) {
       employeeData.documents = employeeData.documents || {};
       employeeData.documents.other_docs = [
         ...(employee.documents?.other_docs || []),
@@ -219,6 +235,11 @@ export const updateEmployee = async (req, res) => {
     if (employeeData.work_experience && fileData.experience_letter) {
       employeeData.work_experience.forEach((exp, index) => {
         if (fileData.experience_letter[index]) {
+          // Delete old experience letter if exists
+          if (exp.experience_letter?.public_id) {
+            deleteFromCloudinary(exp.experience_letter.public_id)
+              .catch(err => console.error('Error deleting old experience letter:', err));
+          }
           exp.experience_letter = fileData.experience_letter[index];
         }
       });
@@ -233,7 +254,8 @@ export const updateEmployee = async (req, res) => {
     
     res.status(200).json({
       success: true,
-      data: employee
+      data: employee,
+      message: 'Employee updated successfully'
     });
   } catch (error) {
     res.status(400).json({
@@ -259,8 +281,10 @@ export const deleteEmployee = async (req, res) => {
     const deletePromises = [];
     
     const deleteIfExists = (file) => {
-      if (file && file.public_id) {
-        deletePromises.push(deleteFromCloudinary(file.public_id));
+      if (file?.public_id) {
+        deletePromises.push(
+          deleteFromCloudinary(file.public_id)
+        );
       }
     };
     
@@ -323,11 +347,12 @@ export const deleteDocument = async (req, res) => {
     await deleteFromCloudinary(public_id);
     
     // Remove reference from employee document
+    let updateQuery = {};
+    
     if (docType === 'other_docs') {
-      await Employee.updateOne(
-        { _id: employeeId },
-        { $pull: { 'documents.other_docs': { public_id } } }
-      );
+      updateQuery = {
+        $pull: { 'documents.other_docs': { public_id } }
+      };
     } else if (docType === 'experience_letter') {
       const expIndex = employee.work_experience.findIndex(
         exp => exp.experience_letter?.public_id === public_id
@@ -336,20 +361,38 @@ export const deleteDocument = async (req, res) => {
       if (expIndex !== -1) {
         employee.work_experience[expIndex].experience_letter = null;
         await employee.save();
+        return res.status(200).json({
+          success: true,
+          message: 'Document deleted successfully'
+        });
       }
     } else {
-      const updatePath = docType.includes('.') ? 
-        docType.split('.') : 
-        [docType];
+      // Handle other document types
+      const fieldMap = {
+        resume: 'documents.resume',
+        offer_letter: 'documents.offer_letter',
+        joining_letter: 'documents.joining_letter',
+        profile_image: 'profile_image',
+        aadhar_document: 'aadhar_document',
+        pan_document: 'pan_document'
+      };
       
-      const updateObj = {};
-      updateObj[updatePath.join('.')] = null;
-      
-      await Employee.updateOne(
-        { _id: employeeId },
-        { $unset: updateObj }
-      );
+      if (fieldMap[docType]) {
+        updateQuery = {
+          $unset: { [fieldMap[docType]]: 1 }
+        };
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid document type'
+        });
+      }
     }
+    
+    await Employee.updateOne(
+      { _id: employeeId },
+      updateQuery
+    );
     
     res.status(200).json({
       success: true,
