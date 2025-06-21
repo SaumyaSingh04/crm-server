@@ -9,6 +9,13 @@ import {
   toggleCurrentEmployee
 } from "../controllers/EmployeeController.js";
 
+import {
+  previewContract,
+  acceptContract,
+  updateContract,
+  downloadContract
+} from "../controllers/EmployeeController.js";
+
 import upload from "../config/multer.js";
 
 const router = express.Router();
@@ -34,5 +41,12 @@ router.put("/:id", updateEmployee);
 router.delete("/:id", deleteEmployee);
 router.delete("/:employeeId/documents/:docType/:public_id", deleteDocument);
 router.patch("/employees/:id/toggle-current", toggleCurrentEmployee);
+
+// 🔹 Contract Routes
+router.get("/:id/contract/preview", previewContract);        // View PDF/HTML
+router.patch("/:id/contract/accept", acceptContract);        // Accept terms
+router.put("/:id/contract/update", updateContract);  
+router.get("/:id/contract/download", downloadContract);  // Add this route
+
 
 export default router;

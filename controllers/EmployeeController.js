@@ -1,5 +1,12 @@
 import Employee from '../models/Employee.js';
 import { uploadToCloudinary, deleteFromCloudinary } from '../utils/upload.js';
+import mongoose from 'mongoose';
+import createHttpError from 'http-errors';
+import pdf from 'html-pdf';
+import { renderContractHTML } from '../utils/contract.utils.js';
+import fs from "fs";
+import path from "path";
+import handlebars from 'handlebars';
 
 // Process files and upload to Cloudinary
 
@@ -460,6 +467,163 @@ export const toggleCurrentEmployee = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Server error while toggling is_current_employee",
+    });
+  }
+};
+
+// // Process files and upload to Cloudinary
+// export const processFiles = async (req) => {
+//   const fileData = {};
+//   if (!req.files) return fileData;
+
+//   const arrayFields = ['other_docs', 'experience_letter'];
+//   for (const field in req.files) {
+//     let files = req.files[field];
+//     if (!Array.isArray(files)) files = [files];
+
+//     // Upload each file
+//     fileData[field] = [];
+//     for (const file of files) {
+//       try {
+//         const uploaded = await uploadToCloudinary(file.tempFilePath, "employees");
+//         fileData[field].push(uploaded);
+//       } catch (error) {
+//         console.error(`Error uploading ${field}:`, error);
+//       }
+//     }
+
+//     // Simplify single‐file arrays
+//     if (fileData[field].length === 1) {
+//       fileData[field] = fileData[field][0];
+//     }
+//   }
+
+//   return fileData;
+// };
+
+
+// ✅ CONTRACT TEMPLATE PREVIEW (HTML)
+export const previewContract = async (req, res) => {
+  try {
+    const employee = await Employee.findById(req.params.id);
+    if (!employee) return res.status(404).json({ message: "Employee not found" });
+
+    // Use the renderContractHTML utility
+    const html = renderContractHTML(employee);
+
+    res.set('Content-Type', 'text/html');
+    res.send(html);
+  } catch (err) {
+    console.error("Contract preview error:", err);
+    res.status(500).json({ message: "Failed to generate contract preview" });
+  }
+};
+
+
+// ✅ PATCH: Accept Contract
+export const acceptContract = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const updated = await Employee.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          'contract_agreement.acceptance.accepted': true,
+          'contract_agreement.acceptance.accepted_at': new Date()
+        }
+      },
+      { new: true }
+    );
+
+    if (!updated) throw createHttpError(404, 'Employee not found');
+
+    res.status(200).json({
+      success: true,
+      acceptance: updated.contract_agreement.acceptance
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ✅ PUT: Update Contract Data
+export const updateContract = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const updates = {};
+
+    // Flatten and set nested contract_agreement fields
+    Object.entries(req.body).forEach(([key, val]) => {
+      updates[`contract_agreement.${key}`] = val;
+    });
+
+    const updated = await Employee.findByIdAndUpdate(
+      id,
+      { $set: updates },
+      { new: true, runValidators: true }
+    );
+
+    if (!updated) throw createHttpError(404, "Employee not found");
+
+    res.status(200).json({
+      success: true,
+      contract: updated.contract_agreement
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// controllers/EmployeeController.js
+export const downloadContract = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const employee = await Employee.findById(id);
+    
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: 'Employee not found'
+      });
+    }
+
+    // Render HTML from template
+    const html = renderContractHTML(employee);
+
+    // PDF generation options
+    const options = { 
+      format: 'A4',
+      border: {
+        top: '0.5in',
+        right: '0.5in',
+        bottom: '0.5in',
+        left: '0.5in'
+      }
+    };
+
+    // Generate PDF
+    const pdfBuffer = await new Promise((resolve, reject) => {
+      pdf.create(html, options).toBuffer((err, buffer) => {
+        if (err) reject(err);
+        else resolve(buffer);
+      });
+    });
+
+    // Set response headers
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename=Employment_Contract_${employee.employee_id}.pdf`,
+      'Content-Length': pdfBuffer.length
+    });
+
+    res.send(pdfBuffer);
+
+  } catch (error) {
+    console.error('Error generating contract:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate contract PDF'
     });
   }
 };
