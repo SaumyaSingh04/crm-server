@@ -11,26 +11,26 @@ cloudinary.v2.config({
   api_secret: "y235v56HWXHd-V5102B7RKcST7g",
 });
 
-export const uploadToCloudinary = async (file, folder = "employees") => {
+// ✅ FIXED: Accept tempFilePath as string
+export const uploadToCloudinary = async (tempFilePath, folder = "employees") => {
   try {
-    if (!file.tempFilePath) {
+    if (!tempFilePath || typeof tempFilePath !== "string") {
       throw new Error("Invalid file data");
     }
 
-    const result = await cloudinary.v2.uploader.upload(file.tempFilePath, {
-      folder: "employees",
+    const result = await cloudinary.v2.uploader.upload(tempFilePath, {
+      folder,
       resource_type: "auto",
     });
 
-    // Optional: remove temp file
-    fs.unlinkSync(file.tempFilePath);
-
-    return result.secure_url;
+    fs.unlinkSync(tempFilePath); // delete temp file
+    return result;
   } catch (err) {
     console.error("Cloudinary upload error:", err);
     throw new Error("Cloudinary upload error: " + err.message);
   }
 };
+
 
 
 export const deleteFromCloudinary = async (public_id) => {
