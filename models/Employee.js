@@ -20,7 +20,7 @@ const employeeSchema = new mongoose.Schema({
 
   aadhar_number: { type: String },
   aadhar_document: {
-    public_id: String,
+    public_id: String, 
     url: String,
   },
   pan_number: { type: String },
@@ -50,10 +50,10 @@ const employeeSchema = new mongoose.Schema({
     },
   ],
 
-  designation: { type: String },
+  designation: { type: String }, 
   department: { type: String },
   reporting_manager: { type: String },
-
+ 
   employee_status: {
     type: String,
     enum: ['Active', 'On Leave', 'Resigned', 'Terminated'],
