@@ -166,6 +166,12 @@ const employeeSchema = new mongoose.Schema({
     },
   },
 
+  terms_and_conditions: {
+    accepted: { type: Boolean, default: false },
+    accepted_at: { type: Date },
+    signature: { type: String },
+  },
+  
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now },
 });

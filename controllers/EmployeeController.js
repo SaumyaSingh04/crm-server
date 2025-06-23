@@ -204,7 +204,7 @@ export const updateEmployee = async (req, res) => {
   try {
     const fileData = await processFiles(req);
 
-    // ✅ FIX: Avoid JSON.parse crash
+    // Parse safely
     let employeeData;
     try {
       employeeData = typeof req.body.employeeData === 'string'
@@ -224,7 +224,7 @@ export const updateEmployee = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
 
-    // File update handlers
+    // === File Handling ===
     const fileUpdateHandlers = {
       profile_image: async () => {
         if (fileData.profile_image) {
@@ -235,7 +235,6 @@ export const updateEmployee = async (req, res) => {
         }
         return employee.profile_image;
       },
-
       aadhar_document: async () => {
         if (fileData.aadhar_document) {
           if (employee.aadhar_document?.public_id) {
@@ -245,7 +244,6 @@ export const updateEmployee = async (req, res) => {
         }
         return employee.aadhar_document;
       },
-
       pan_document: async () => {
         if (fileData.pan_document) {
           if (employee.pan_document?.public_id) {
@@ -261,104 +259,56 @@ export const updateEmployee = async (req, res) => {
       employeeData[field] = await handler();
     }
 
-    // Handle documents
+    // === Document Handling ===
     employeeData.documents = employeeData.documents || {};
-  
-    const documentHandlers = {
-      resume: async () => {
-        if (fileData.resume) {
-          if (employee.documents?.resume?.public_id) {
-            await deleteFromCloudinary(employee.documents.resume.public_id);
-          }
-          return fileData.resume;
-        }
-        return employee.documents?.resume || null;
-      },
+    const docFields = ["resume", "offer_letter", "joining_letter"];
 
-      offer_letter: async () => {
-        if (fileData.offer_letter) {
-          if (employee.documents?.offer_letter?.public_id) {
-            await deleteFromCloudinary(employee.documents.offer_letter.public_id);
-          }
-          return fileData.offer_letter;
+    for (const field of docFields) {
+      if (fileData[field]) {
+        if (employee.documents?.[field]?.public_id) {
+          await deleteFromCloudinary(employee.documents[field].public_id);
         }
-        return employee.documents?.offer_letter || null;
-      },
-
-      joining_letter: async () => {
-        if (fileData.joining_letter) {
-          if (employee.documents?.joining_letter?.public_id) {
-            await deleteFromCloudinary(employee.documents.joining_letter.public_id);
-          }
-          return fileData.joining_letter;
-        }
-        return employee.documents?.joining_letter || null;
+        employeeData.documents[field] = fileData[field];
+      } else {
+        employeeData.documents[field] = employee.documents?.[field] || null;
       }
-    };
-
-    for (const [docType, handler] of Object.entries(documentHandlers)) {
-      employeeData.documents[docType] = await handler();
     }
 
-    // Other Docs
-    if (fileData.other_docs?.length) {
-      employeeData.documents.other_docs = [
-        ...(employee.documents?.other_docs || []),
-        ...fileData.other_docs
-      ];
-    } else {
-      employeeData.documents.other_docs = employee.documents?.other_docs || [];
-    }
+    employeeData.documents.other_docs = [
+      ...(employee.documents?.other_docs || []),
+      ...(fileData.other_docs || [])
+    ];
 
-    // Work experience updates
+    // === Experience Letter Fix ===
+    const existingMap = new Map();
+    employee.work_experience.forEach((exp) => {
+      if (exp._id) existingMap.set(exp._id.toString(), exp);
+    });
+
     if (employeeData.work_experience) {
-      const existingWorkExpMap = new Map();
-      employee.work_experience.forEach(exp => {
-        if (exp._id) existingWorkExpMap.set(exp._id.toString(), exp);
-      });
-
       employeeData.work_experience = await Promise.all(
-        employeeData.work_experience.map(async (newExp) => {
-          const updatedExp = { ...newExp };
-          const existingExp = existingWorkExpMap.get(newExp._id?.toString());
+        employeeData.work_experience.map(async (exp, i) => {
+          const existing = exp._id ? existingMap.get(exp._id.toString()) : null;
 
-          if (existingExp?.experience_letter && newExp.experience_letter === null) {
-            if (existingExp.experience_letter?.public_id) {
-              await deleteFromCloudinary(existingExp.experience_letter.public_id);
+          // Attach uploaded file if present
+          const uploadedLetter = Array.isArray(fileData.experience_letter)
+            ? fileData.experience_letter[i]
+            : fileData.experience_letter;
+
+          if (uploadedLetter) {
+            if (existing?.experience_letter?.public_id) {
+              await deleteFromCloudinary(existing.experience_letter.public_id);
             }
-            updatedExp.experience_letter = null;
-          } else if (existingExp?.experience_letter && newExp.experience_letter?.url) {
-            updatedExp.experience_letter = existingExp.experience_letter;
+            return { ...exp, experience_letter: uploadedLetter };
           }
 
-          return updatedExp;
+          // If no upload, retain previous
+          return {
+            ...exp,
+            experience_letter: existing?.experience_letter || null
+          };
         })
       );
-    }
-
-    if (fileData.experience_letter) {
-      const newFiles = Array.isArray(fileData.experience_letter)
-        ? fileData.experience_letter
-        : [fileData.experience_letter];
-
-      for (let i = 0; i < newFiles.length; i++) {
-        const file = newFiles[i];
-        const expIndex = employeeData.work_experience.findIndex(
-          exp => !exp._id || !exp.experience_letter
-        );
-
-        if (expIndex !== -1) {
-          const expId = employeeData.work_experience[expIndex]._id;
-          if (expId) {
-            const existingExp = employee.work_experience.find(e => e._id.toString() === expId.toString());
-            if (existingExp?.experience_letter?.public_id) {
-              await deleteFromCloudinary(existingExp.experience_letter.public_id);
-            }
-          }
-
-          employeeData.work_experience[expIndex].experience_letter = file;
-        }
-      }
     }
 
     const updatedEmployee = await Employee.findByIdAndUpdate(
@@ -377,10 +327,11 @@ export const updateEmployee = async (req, res) => {
     console.error('Error updating employee:', error);
     res.status(400).json({
       success: false,
-      message: error.message
+      message: error.message || "Update failed"
     });
   }
-}; 
+};
+ 
  
 // Delete Employee
 export const deleteEmployee = async (req, res) => {
@@ -635,7 +586,7 @@ export const downloadContract = async (req, res) => {
   try {
     const { id } = req.params;
     const employee = await Employee.findById(id);
-    
+
     if (!employee) {
       return res.status(404).json({
         success: false,
@@ -644,30 +595,131 @@ export const downloadContract = async (req, res) => {
     }
 
     const html = renderContractHTML(employee);
-    const options = { 
-      format: 'A4',
-      border: '0.5in'
+    const options = {
+      format: "A4",
+      border: {
+        top: "2mm",
+        right: "2mm",
+        bottom: "2mm",
+        left: "2mm"
+      },
+      zoomFactor: 0.75, 
+      paginationOffset: 1,
+      header: {
+        height: "0mm"
+      },
+      footer: {
+        height: "0mm"
+      }
     };
 
-    const pdfBuffer = await new Promise((resolve, reject) => {
-      pdf.create(html, options).toBuffer((err, buffer) => {
-        if (err) reject(err);
-        else resolve(buffer);
+    pdf.create(html, options).toBuffer((err, buffer) => {
+      if (err) {
+        console.error('PDF generation error:', err);
+        return res.status(500).json({
+          success: false,
+          message: 'PDF generation failed'
+        });
+      }
+
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename=Employment_Contract_${employee.employee_id}.pdf`,
+        'Content-Length': buffer.length
       });
-    });
 
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename=Employment_Contract_${employee.employee_id}.pdf`,
-      'Content-Length': pdfBuffer.length
+      res.send(buffer);
     });
-
-    res.send(pdfBuffer);
   } catch (error) {
-    console.error('Error generating contract:', error);
+    console.error('Contract PDF generation error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to generate contract PDF'
+      message: 'Internal server error while generating contract'
     });
+  }
+};
+
+// controller/employeeController.js
+export const acceptPolicy = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { signature } = req.body;
+
+    const employee = await Employee.findById(id);
+    if (!employee) return res.status(404).json({ message: "Employee not found" });
+
+    if (employee.policy_acceptance?.accepted) {
+      return res.status(400).json({ message: "Policy already accepted" });
+    }
+
+    employee.policy_acceptance = {
+      accepted: true,
+      accepted_at: new Date(),
+      signature,
+    };
+
+    await employee.save();
+    res.status(200).json({ message: "Policy accepted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Error accepting policy", error });
+  }
+};
+
+export const getPolicyStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const employee = await Employee.findById(id).select('policy_acceptance');
+    if (!employee) return res.status(404).json({ message: "Employee not found" });
+
+    res.status(200).json(employee.policy_acceptance);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching policy status", error });
+  }
+};
+
+export const acceptTerms = async (req, res) => {
+  try {
+    const { signature } = req.body;
+    const { id } = req.params;
+
+    if (!signature) {
+      return res.status(400).json({ message: "Signature is required." });
+    }
+
+    const employee = await Employee.findById(id);
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found" });
+    }
+
+    employee.terms_and_conditions = {
+      accepted: true,
+      accepted_at: new Date(),
+      signature,
+    };
+
+    await employee.save();
+
+    res.status(200).json({ message: "Terms and Conditions accepted." });
+  } catch (error) {
+    console.error("Error in acceptTerms:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+export const getTermsStatus = async (req, res) => {
+  try {
+    const employee = await Employee.findById(req.params.id).select("terms_and_conditions");
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found" });
+    }
+
+    res.status(200).json({
+      accepted: employee.terms_and_conditions?.accepted || false,
+      accepted_at: employee.terms_and_conditions?.accepted_at || null,
+    });
+  } catch (error) {
+    console.error("Error in getTermsStatus:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
