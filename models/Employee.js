@@ -23,7 +23,7 @@ const employeeSchema = new mongoose.Schema({
     public_id: String, 
     url: String,
   },
-  pan_number: { type: String },
+  pan_number: { type: String }, 
   pan_document: {
     public_id: String,
     url: String,

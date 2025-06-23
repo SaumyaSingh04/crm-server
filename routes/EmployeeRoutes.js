@@ -11,9 +11,9 @@ import {
   acceptContract,
   updateContract,
   downloadContract,
-  acceptPolicy, getPolicyStatus,
-  acceptTerms,
-  getTermsStatus,
+  // acceptPolicy, getPolicyStatus,
+  // acceptTerms,
+  // getTermsStatus,
 } from "../controllers/EmployeeController.js";
 
 import upload from "../config/multer.js";
@@ -45,9 +45,9 @@ router.get("/:id/contract/preview", previewContract);
 router.patch("/:id/contract/accept", acceptContract);
 router.put("/:id/contract/update", updateContract);
 router.get("/:id/contract/download", downloadContract);
-router.post('/:id/accept-policy', acceptPolicy);
-router.get('/:id/policy-status', getPolicyStatus);
-router.post("/:id/accept-terms", acceptTerms);
-router.get("/:id/terms-status", getTermsStatus);
+// router.post('/:id/accept-policy', acceptPolicy);
+// router.get('/:id/policy-status', getPolicyStatus);
+// router.post("/:id/accept-terms", acceptTerms);
+// router.get("/:id/terms-status", getTermsStatus);
 
 export default router;

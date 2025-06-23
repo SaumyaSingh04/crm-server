@@ -640,86 +640,86 @@ export const downloadContract = async (req, res) => {
 };
 
 // controller/employeeController.js
-export const acceptPolicy = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { signature } = req.body;
+// export const acceptPolicy = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const { signature } = req.body;
 
-    const employee = await Employee.findById(id);
-    if (!employee) return res.status(404).json({ message: "Employee not found" });
+//     const employee = await Employee.findById(id);
+//     if (!employee) return res.status(404).json({ message: "Employee not found" });
 
-    if (employee.policy_acceptance?.accepted) {
-      return res.status(400).json({ message: "Policy already accepted" });
-    }
+//     if (employee.policy_acceptance?.accepted) {
+//       return res.status(400).json({ message: "Policy already accepted" });
+//     }
 
-    employee.policy_acceptance = {
-      accepted: true,
-      accepted_at: new Date(),
-      signature,
-    };
+//     employee.policy_acceptance = {
+//       accepted: true,
+//       accepted_at: new Date(),
+//       signature,
+//     };
 
-    await employee.save();
-    res.status(200).json({ message: "Policy accepted successfully" });
-  } catch (error) {
-    res.status(500).json({ message: "Error accepting policy", error });
-  }
-};
+//     await employee.save();
+//     res.status(200).json({ message: "Policy accepted successfully" });
+//   } catch (error) {
+//     res.status(500).json({ message: "Error accepting policy", error });
+//   }
+// };
 
-export const getPolicyStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
+// export const getPolicyStatus = async (req, res) => {
+//   try {
+//     const { id } = req.params;
 
-    const employee = await Employee.findById(id).select('policy_acceptance');
-    if (!employee) return res.status(404).json({ message: "Employee not found" });
+//     const employee = await Employee.findById(id).select('policy_acceptance');
+//     if (!employee) return res.status(404).json({ message: "Employee not found" });
 
-    res.status(200).json(employee.policy_acceptance);
-  } catch (error) {
-    res.status(500).json({ message: "Error fetching policy status", error });
-  }
-};
+//     res.status(200).json(employee.policy_acceptance);
+//   } catch (error) {
+//     res.status(500).json({ message: "Error fetching policy status", error });
+//   }
+// };
 
-export const acceptTerms = async (req, res) => {
-  try {
-    const { signature } = req.body;
-    const { id } = req.params;
+// export const acceptTerms = async (req, res) => {
+//   try {
+//     const { signature } = req.body;
+//     const { id } = req.params;
 
-    if (!signature) {
-      return res.status(400).json({ message: "Signature is required." });
-    }
+//     if (!signature) {
+//       return res.status(400).json({ message: "Signature is required." });
+//     }
 
-    const employee = await Employee.findById(id);
-    if (!employee) {
-      return res.status(404).json({ message: "Employee not found" });
-    }
+//     const employee = await Employee.findById(id);
+//     if (!employee) {
+//       return res.status(404).json({ message: "Employee not found" });
+//     }
 
-    employee.terms_and_conditions = {
-      accepted: true,
-      accepted_at: new Date(),
-      signature,
-    };
+//     employee.terms_and_conditions = {
+//       accepted: true,
+//       accepted_at: new Date(),
+//       signature,
+//     };
 
-    await employee.save();
+//     await employee.save();
 
-    res.status(200).json({ message: "Terms and Conditions accepted." });
-  } catch (error) {
-    console.error("Error in acceptTerms:", error);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-};
+//     res.status(200).json({ message: "Terms and Conditions accepted." });
+//   } catch (error) {
+//     console.error("Error in acceptTerms:", error);
+//     res.status(500).json({ message: "Internal Server Error" });
+//   }
+// };
 
-export const getTermsStatus = async (req, res) => {
-  try {
-    const employee = await Employee.findById(req.params.id).select("terms_and_conditions");
-    if (!employee) {
-      return res.status(404).json({ message: "Employee not found" });
-    }
+// export const getTermsStatus = async (req, res) => {
+//   try {
+//     const employee = await Employee.findById(req.params.id).select("terms_and_conditions");
+//     if (!employee) {
+//       return res.status(404).json({ message: "Employee not found" });
+//     }
 
-    res.status(200).json({
-      accepted: employee.terms_and_conditions?.accepted || false,
-      accepted_at: employee.terms_and_conditions?.accepted_at || null,
-    });
-  } catch (error) {
-    console.error("Error in getTermsStatus:", error);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-};
+//     res.status(200).json({
+//       accepted: employee.terms_and_conditions?.accepted || false,
+//       accepted_at: employee.terms_and_conditions?.accepted_at || null,
+//     });
+//   } catch (error) {
+//     console.error("Error in getTermsStatus:", error);
+//     res.status(500).json({ message: "Internal Server Error" });
+//   }
+// };
