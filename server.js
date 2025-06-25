@@ -26,7 +26,16 @@ await connectDB();
 
 // Middleware Configuration
 app.use(express.json());
-app.use(cors({ origin: allowedOrigins, credentials: true }));
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("CORS error: Origin not allowed"));
+    }
+  },
+  credentials: true,
+}));
 // app.use(fileUpload({
 //   useTempFiles: true,
 //   tempFileDir: "/tmp/",
