@@ -64,10 +64,13 @@ cron.schedule("55 14 * * *", async () => {
         console.log("✅ Notification generated:", message);
 
         // In sendReminders.js
-        const payload = JSON.stringify({
-          title: "CRM Notification",
-          body: "This is a real push notification!"
-        });        
+const payload = JSON.stringify({
+    title: "CRM Reminder",
+    body: message,
+    // Add type identifier
+    type: "meeting-reminder",
+    meetingId: lead._id.toString()
+  });         
 
         for (const sub of subs) {
           try {
