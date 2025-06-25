@@ -19,7 +19,7 @@ const port = process.env.PORT || 5000;
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
-  "https://client-tan-rho.vercel.app",
+  "https://crm-client-neon.vercel.app",
 ];
 
 await connectDB();

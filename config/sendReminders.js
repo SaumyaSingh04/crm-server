@@ -22,7 +22,7 @@ const isSameDay = (d1, d2) =>
 
 // ✅ Run every minute for testing ("0 9 * * *" for production at 9:00 AM)
 //cron.schedule("* * * * *", async () => {
-cron.schedule("15 15 * * *", async () => {
+cron.schedule("45 10 * * *", async () => {
   console.log("⏰ Cron running...");
 
   const today = new Date();
