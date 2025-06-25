@@ -11,6 +11,15 @@ webpush.setVapidDetails(
   process.env.VAPID_PUBLIC_KEY,
   process.env.VAPID_PRIVATE_KEY
 );
+// In pushRoutes.js
+router.get('/config', (req, res) => {
+  res.json({
+    vapidPublic: process.env.VAPID_PUBLIC_KEY,
+    frontendUrl: process.env.FRONTEND_URL,
+    nodeEnv: process.env.NODE_ENV,
+    time: new Date().toString()
+  });
+});
 
 // Save push subscription
 router.post("/subscribe", async (req, res) => {
