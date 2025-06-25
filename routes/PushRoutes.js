@@ -37,4 +37,28 @@ router.post("/subscribe", async (req, res) => {
   }
 });
 
+// Send push notification manually for testing
+router.post("/send", async (req, res) => {
+  try {
+    const subscriptions = await Subscription.find({});
+    const payload = JSON.stringify({
+      title: "🔥 CRM Notification",
+      body: "This is a real push from backend!",
+    });
+
+    const results = await Promise.allSettled(
+      subscriptions.map((sub) =>
+        webpush.sendNotification(sub, payload)
+      )
+    );
+
+    console.log("📨 Push sent to", results.length, "subscribers");
+    res.status(200).json({ message: "Push notifications sent" });
+  } catch (error) {
+    console.error("❌ Push send error:", error);
+    res.status(500).json({ error: "Failed to send push" });
+  }
+});
+
+
 export default router;
