@@ -25,17 +25,21 @@ const allowedOrigins = [
 await connectDB();
 
 // Middleware Configuration
-app.use(express.json());
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.warn("❌ CORS Blocked:", origin);
       callback(new Error("CORS error: Origin not allowed"));
     }
   },
   credentials: true,
 }));
+
+// Handle OPTIONS preflight
+app.options("*", cors());
+
 // app.use(fileUpload({
 //   useTempFiles: true,
 //   tempFileDir: "/tmp/",

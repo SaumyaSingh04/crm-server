@@ -14,6 +14,7 @@ webpush.setVapidDetails(
 
 // Save push subscription
 router.post("/subscribe", async (req, res) => {
+  console.log("🔥 Push subscription attempt from:", req.headers.origin);
   const sub = req.body;
   try {
     const exists = await Subscription.findOne({ endpoint: sub.endpoint });
