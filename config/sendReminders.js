@@ -22,7 +22,7 @@ const isSameDay = (d1, d2) =>
 
 // ✅ Run every minute for testing ("0 9 * * *" for production at 9:00 AM)
 //cron.schedule("* * * * *", async () => {
-cron.schedule("53 14 * * *", async () => {
+cron.schedule("55 14 * * *", async () => {
   console.log("⏰ Cron running...");
 
   const today = new Date();
@@ -64,13 +64,10 @@ cron.schedule("53 14 * * *", async () => {
         console.log("✅ Notification generated:", message);
 
         // In sendReminders.js
-const payload = JSON.stringify({
-    title: "CRM Reminder",
-    body: message,
-    // Add type identifier
-    type: "meeting-reminder",
-    meetingId: lead._id.toString()
-  });         
+        const payload = JSON.stringify({
+          title: "CRM Notification",
+          body: "This is a real push notification!"
+        });        
 
         for (const sub of subs) {
           try {
